@@ -1,0 +1,218 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Utilisateur {
+  id                 Int       @id @default(autoincrement())
+  email              String    @unique
+  mot_de_passe_hash  String
+  role               UtilisateurType
+  date_creation      DateTime  @default(now())
+  dernier_login      DateTime?
+  est_actif          Boolean   @default(true)
+  Patient            Patient?
+  Medecin            Medecin?
+  Receptionniste     Receptionniste?
+  Session         Session[]
+}
+
+enum UtilisateurType {
+  patient
+  medecin
+  receptionniste
+  admin
+}
+
+model Patient {
+  id              String      @id @default(uuid())
+  utilisateur_id  Int      @unique
+  date_naissance  DateTime
+  genre           Genre
+  adresse         String?
+  telephone       String?
+  assurance       String?
+  numero_assurance String?
+  allergies       String?
+  antecedents     String?
+  utilisateur     Utilisateur @relation(fields: [utilisateur_id], references: [id])
+  rendezVous      RendezVous[]
+
+  Consultation Consultation[]
+}
+
+enum Genre {
+  M
+  F
+  Autre
+}
+
+model Medecin {
+  id              Int      @id @default(autoincrement())
+  utilisateur_id  Int      @unique
+  nom             String
+  prenom          String
+  specialite      String
+  numero_licence  String   @unique
+  est_generaliste Boolean  @default(false)
+  utilisateur     Utilisateur @relation(fields: [utilisateur_id], references: [id])
+  plagesHoraires  PlageHoraire[]
+  rendezVous      RendezVous[]
+  consultations   Consultation[]
+
+  Indisponibilite Indisponibilite[]
+}
+
+model Receptionniste {
+  id              Int      @id @default(autoincrement())
+  utilisateur_id  Int      @unique
+  nom             String
+  prenom          String
+  utilisateur     Utilisateur @relation(fields: [utilisateur_id], references: [id])
+}
+
+model PlageHoraire {
+  id                   Int        @id @default(autoincrement())
+  medecin_id           Int
+  jour_semaine         JourSemaine
+  heure_debut          DateTime
+  heure_fin            DateTime
+  duree_consultation   Int        @default(15)
+  est_active           Boolean    @default(true)
+  medecin              Medecin    @relation(fields: [medecin_id], references: [id])
+}
+
+enum JourSemaine {
+  Lundi
+  Mardi
+  Mercredi
+  Jeudi
+  Vendredi
+  Samedi
+  Dimanche
+}
+
+model RendezVous {
+  id              Int        @id @default(autoincrement())
+  patient_id      String
+  medecin_id      Int
+  date_heure      DateTime
+  duree           Int        @default(15)
+  statut          StatutRdv  @default(confirme)
+  motif           String?
+  date_creation   DateTime   @default(now())
+  cree_par        CreePar
+  est_urgence     Boolean    @default(false)
+  patient         Patient    @relation(fields: [patient_id], references: [id])
+  medecin         Medecin    @relation(fields: [medecin_id], references: [id])
+  salleAttente    SalleAttente?
+  consultation    Consultation?
+}
+
+enum StatutRdv {
+  confirme
+  annule
+  reporte
+  termine
+  absent
+}
+
+enum CreePar {
+  patient
+  receptionniste
+  systeme
+}
+
+model SalleAttente {
+  id             Int        @id @default(autoincrement())
+  rendez_vous_id Int        @unique
+  heure_arrivee  DateTime   @default(now())
+  statut         StatutAttente @default(en_attente)
+  priorite       Int        @default(0)
+  rendezVous     RendezVous @relation(fields: [rendez_vous_id], references: [id])
+}
+
+enum StatutAttente {
+  en_attente
+  en_consultation
+  termine
+  annule
+}
+
+model Consultation {
+  id                Int        @id @default(autoincrement())
+  rendez_vous_id    Int        @unique
+  medecin_id        Int
+  patient_id        String
+  date_heure_debut  DateTime
+  date_heure_fin    DateTime?
+  symptomes         String?
+  diagnostic        String?
+  notes             String?
+  rendezVous        RendezVous @relation(fields: [rendez_vous_id], references: [id])
+  medecin           Medecin    @relation(fields: [medecin_id], references: [id])
+  patient           Patient    @relation(fields: [patient_id], references: [id])
+  ordonnances       Ordonnance[]
+  examensPrescrits  ExamenPrescrit[]
+}
+
+model Ordonnance {
+  id              Int        @id @default(autoincrement())
+  consultation_id Int
+  date_creation   DateTime   @default(now())
+  instructions    String?
+  est_archive     Boolean    @default(false)
+  consultation    Consultation @relation(fields: [consultation_id], references: [id])
+  medicaments     MedicamentPrescrit[]
+}
+
+model MedicamentPrescrit {
+  id            Int      @id @default(autoincrement())
+  ordonnance_id Int
+  medicament    String
+  posologie     String
+  duree         String
+  ordonnance    Ordonnance @relation(fields: [ordonnance_id], references: [id])
+}
+
+model ExamenPrescrit {
+  id                Int       @id @default(autoincrement())
+  consultation_id   Int
+  type_examen       String
+  instructions      String?
+  est_realise       Boolean   @default(false)
+  date_realisation  DateTime?
+  resultat          String?
+  consultation      Consultation @relation(fields: [consultation_id], references: [id])
+}
+
+model Indisponibilite {
+  id          Int       @id @default(autoincrement())
+  medecin_id  Int
+  date_debut  DateTime
+  date_fin    DateTime
+  motif       String?
+  medecin     Medecin   @relation(fields: [medecin_id], references: [id])
+}
+
+
+model Session {
+  id            Int        @id @default(autoincrement())
+  token         String     @unique
+  utilisateur   Utilisateur @relation(fields: [utilisateur_id], references: [id])
+  utilisateur_id Int
+  expires_at    DateTime
+  created_at    DateTime   @default(now())
+  updated_at    DateTime   @updatedAt
+}
