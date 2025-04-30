@@ -39,8 +39,6 @@ Une application web/mobile moderne permettant :
 - Enregistrer les paiements
 - Générer les reçus
 
----
-
 ## 🛠️ Stack technique
 
 - **Next.js v15** – Framework React moderne
